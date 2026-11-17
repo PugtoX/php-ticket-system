@@ -1,0 +1,34 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8080:80"
+    volumes:
+      - ".:/var/www/html"
+    environment:
+      DB_HOST: db
+      DB_NAME: tickets
+      DB_USER: tickets
+      DB_PASS: tickets
+    depends_on:
+      db:
+        condition: service_healthy
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: tickets
+      MYSQL_USER: tickets
+      MYSQL_PASSWORD: tickets
+    ports:
+      - "3307:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot", "--silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+    volumes:
+      - "./db:/docker-entrypoint-initdb.d:ro"
+      - dbdata:/var/lib/mysql
+volumes:
+  dbdata:

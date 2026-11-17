@@ -1,0 +1,9 @@
+/vendor/
+/.tools/
+*.log
+.DS_Store
+
+# test cache artifact
+.phpunit.result.cache
+docs/_tickets_snapshot.html
+docs/assets/
