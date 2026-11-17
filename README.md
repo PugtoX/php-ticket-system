@@ -1,5 +1,7 @@
 # Ticket Desk — PHP + MySQL support queue
 
+![ci](https://github.com/PugtoX/php-ticket-system/actions/workflows/ci.yml/badge.svg)
+
 A small but complete internal tool: ticket list with filtering and pagination, a status
 state machine enforced on the server, an audit trail, and JSON endpoints the browser uses
 for no-reload status updates. Plain PHP 8.3 + PDO + MySQL, no framework, no build step.
@@ -46,6 +48,7 @@ mysql -u root -p tickets < db/02_seed.sql
 
 export DB_HOST=127.0.0.1 DB_PORT=3306 DB_NAME=tickets DB_USER=tickets DB_PASS=tickets
 php bin/create_user.php admin@example.com demo1234 admin
+php bin/create_user.php agent@example.com demo1234 agent
 php -S 127.0.0.1:8080 -t public server.php
 ```
 
