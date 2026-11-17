@@ -64,7 +64,7 @@ jobs:
             curl -fsS http://127.0.0.1:8080/login > /dev/null && break
             sleep 1
           done
-          php tests/http_check.php http://127.0.0.1:8080
+          php tests/http_check.php http://127.0.0.1:8080 --require-rag
 
       - name: diagnostics when the assertions fail
         if: failure()
