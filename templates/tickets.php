@@ -57,7 +57,11 @@ use App\TicketStatus;
           <?php foreach (TicketStatus::nextStates((string) $t['status']) as $next): ?>
             <button data-action="status" data-to="<?= htmlspecialchars($next, ENT_QUOTES, 'UTF-8') ?>"><?= $next === 'in_progress' ? 'Start' : ($next === 'closed' ? 'Close' : 'Reopen') ?></button>
           <?php endforeach; ?>
+          <button data-action="suggest" data-id="<?= (int) $t['id'] ?>" title="Draft a reply with the RAG service">AI reply</button>
         </td>
+      </tr>
+      <tr class="suggest-row" data-suggest-for="<?= (int) $t['id'] ?>" hidden>
+        <td colspan="6"><div class="suggest-box"></div></td>
       </tr>
     <?php endforeach; ?>
     </tbody>
