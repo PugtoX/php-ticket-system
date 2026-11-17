@@ -89,4 +89,3 @@ CI runs both against a real MySQL 8 service container (`.github/workflows/ci.yml
 **suggested-reply** endpoint: POST the ticket text to an LLM-backed RAG service and return a
 draft the agent can edit. The seam is one route (`POST /api/tickets/{id}/suggest`) and one
 button; the table already carries what the prompt would need.
-[README.md](https://github.com/user-attachments/files/34967324/README.md)
