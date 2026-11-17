@@ -62,3 +62,7 @@ jobs:
             sleep 1
           done
           php tests/http_check.php http://127.0.0.1:8080
+          status=$?
+          echo "=== server log ==="
+          cat /tmp/server.log || true
+          exit $status
