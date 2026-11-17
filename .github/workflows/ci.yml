@@ -58,7 +58,8 @@ jobs:
 
       - name: http assertions
         run: |
-          php -S 127.0.0.1:8080 -t public server.php > /tmp/server.log 2>&1 &
+          php -S 127.0.0.1:8081 tests/fake_rag.php > /tmp/rag.log 2>&1 &
+          RAG_BASE_URL=http://127.0.0.1:8081 php -S 127.0.0.1:8080 -t public server.php > /tmp/server.log 2>&1 &
           for i in $(seq 1 20); do
             curl -fsS http://127.0.0.1:8080/login > /dev/null && break
             sleep 1
@@ -70,4 +71,9 @@ jobs:
         run: |
           echo "=== server log ==="
           cat /tmp/server.log || true
-          curl -s -i -X POST http://127.0.0.1:8080/login -d 'email=agent@example.com&password=demo1234' | head -20 || true
+          echo "=== fake rag log ==="
+          cat /tmp/rag.log || true
+          echo "=== users table ==="
+          mysql -h 127.0.0.1 -utickets -ptickets tickets -e "SELECT id,email,LEFT(pass_hash,7) AS h,role FROM users" || true
+          echo "=== login response ==="
+          curl -s -i -X POST http://127.0.0.1:8080/login -d 'email=admin@example.com&password=demo1234' | head -25 || true
