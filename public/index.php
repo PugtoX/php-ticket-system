@@ -105,6 +105,7 @@ if ($path === '/logout' && $method === 'POST') {
 if ($path === '/api/stats') {
     $auth->requireLogin();
     json($repo->stats());
+
 }
 
 // ---- GET /api/tickets
@@ -147,6 +148,7 @@ if (preg_match('#^/api/tickets/(\d+)(/status)?$#', $path, $m) === 1) {
     $ticket['next_states'] = TicketStatus::nextStates((string) $ticket['status']);
     json($ticket);
 }
+
 
 // ---- POST /tickets (create)
 if ($path === '/tickets' && $method === 'POST') {
