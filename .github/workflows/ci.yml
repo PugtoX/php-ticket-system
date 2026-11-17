@@ -62,7 +62,13 @@ jobs:
             sleep 1
           done
           php tests/http_check.php http://127.0.0.1:8080
-          status=$?
+
+      - name: diagnostics when the assertions fail
+        if: failure()
+        run: |
           echo "=== server log ==="
           cat /tmp/server.log || true
-          exit $status
+          echo "=== users table ==="
+          mysql -h 127.0.0.1 -utickets -ptickets tickets -e "SELECT id,email,LEFT(pass_hash,7) AS h,role FROM users" || true
+          echo "=== login response ==="
+          curl -s -i -X POST http://127.0.0.1:8080/login -d 'email=admin@example.com&password=demo1234' | head -25 || true
