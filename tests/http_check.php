@@ -4,6 +4,7 @@ declare(strict_types=1);
 // Usage: php .tools/api_check.php [baseUrl]
 
 $base = $argv[1] ?? 'http://127.0.0.1:8080';
+$requireRag = in_array('--require-rag', $argv, true);
 $jar = tempnam(sys_get_temp_dir(), 'ck');
 $pass = 0;
 $fail = 0;
@@ -135,7 +136,11 @@ check('suggest for a missing ticket is 404', $r['code'] === 404, (string) $r['co
 $r = hit("{$base}/api/tickets/1/suggest", ['method' => 'POST', 'headers' => ["X-CSRF-Token: {$token}"]]);
 $payload = json_decode($r['body'], true);
 if ($r['code'] === 503 && str_contains((string) ($payload['error'] ?? ''), 'not configured')) {
-    echo "  SKIP  no RAG_BASE_URL on this instance, happy path not exercised\n";
+    if ($requireRag) {
+        check('suggest is configured on this instance', false, 'RAG_BASE_URL is not set');
+    } else {
+        echo "  SKIP  no RAG_BASE_URL on this instance, happy path not exercised\n";
+    }
 } else {
     check('suggest returns a draft', $r['code'] === 200 && is_string($payload['reply'] ?? null) && $payload['reply'] !== '', (string) $r['code']);
 
