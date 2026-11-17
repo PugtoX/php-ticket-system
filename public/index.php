@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 use App\Auth;
 use App\Db;
+use App\RagSuggester;
 use App\TicketRepo;
 use App\TicketStatus;
 
@@ -105,7 +106,6 @@ if ($path === '/logout' && $method === 'POST') {
 if ($path === '/api/stats') {
     $auth->requireLogin();
     json($repo->stats());
-
 }
 
 // ---- GET /api/tickets
@@ -117,6 +117,29 @@ if ($path === '/api/tickets' && $method === 'GET') {
         (int) ($_GET['page'] ?? 1),
         (int) ($_GET['per_page'] ?? 20)
     ));
+}
+
+// ---- POST /api/tickets/{id}/suggest
+if (preg_match('#^/api/tickets/(\d+)/suggest$#', $path, $m) === 1 && $method === 'POST') {
+    $auth->requireLogin();
+    requireCsrf($auth);
+
+    $ticket = $repo->find((int) $m[1]);
+    if ($ticket === null) {
+        json(['error' => 'not found'], 404);
+    }
+
+    $baseUrl = (string) (getenv('RAG_BASE_URL') ?: '');
+    if ($baseUrl === '') {
+        json(['error' => 'AI reply is not configured: set RAG_BASE_URL'], 503);
+    }
+
+    $result = (new RagSuggester($baseUrl))->suggest((string) $ticket['subject'], (string) $ticket['body']);
+    if ($result['error'] !== null) {
+        json(['error' => $result['error']], 503);
+    }
+
+    json(['reply' => $result['reply']]);
 }
 
 // ---- /api/tickets/{id} and /api/tickets/{id}/status
@@ -148,7 +171,6 @@ if (preg_match('#^/api/tickets/(\d+)(/status)?$#', $path, $m) === 1) {
     $ticket['next_states'] = TicketStatus::nextStates((string) $ticket['status']);
     json($ticket);
 }
-
 
 // ---- POST /tickets (create)
 if ($path === '/tickets' && $method === 'POST') {
