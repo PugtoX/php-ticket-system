@@ -1,0 +1,64 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      db:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: tickets
+          MYSQL_USER: tickets
+          MYSQL_PASSWORD: tickets
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -utickets -ptickets"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
+    env:
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_NAME: tickets
+      DB_USER: tickets
+      DB_PASS: tickets
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_mysql, mbstring
+          coverage: none
+
+      - name: install dependencies
+        run: composer install --no-interaction --no-progress
+
+      - name: load schema and seed
+        run: |
+          mysql -h 127.0.0.1 -utickets -ptickets tickets < db/01_schema.sql
+          mysql -h 127.0.0.1 -utickets -ptickets tickets < db/02_seed.sql
+
+      - name: create a test user
+        run: php bin/create_user.php admin@example.com demo1234 admin
+
+      - name: unit tests
+        run: vendor/bin/phpunit --no-coverage
+
+      - name: http assertions
+        run: |
+          php -S 127.0.0.1:8080 -t public server.php > /tmp/server.log 2>&1 &
+          for i in $(seq 1 20); do
+            curl -fsS http://127.0.0.1:8080/login > /dev/null && break
+            sleep 1
+          done
+          php tests/http_check.php http://127.0.0.1:8080
