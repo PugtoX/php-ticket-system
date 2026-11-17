@@ -48,8 +48,10 @@ jobs:
           mysql -h 127.0.0.1 -utickets -ptickets tickets < db/01_schema.sql
           mysql -h 127.0.0.1 -utickets -ptickets tickets < db/02_seed.sql
 
-      - name: create a test user
-        run: php bin/create_user.php admin@example.com demo1234 admin
+      - name: create the test users the HTTP script logs in as
+        run: |
+          php bin/create_user.php admin@example.com demo1234 admin
+          php bin/create_user.php agent@example.com demo1234 agent
 
       - name: unit tests
         run: vendor/bin/phpunit --no-coverage
@@ -68,7 +70,4 @@ jobs:
         run: |
           echo "=== server log ==="
           cat /tmp/server.log || true
-          echo "=== users table ==="
-          mysql -h 127.0.0.1 -utickets -ptickets tickets -e "SELECT id,email,LEFT(pass_hash,7) AS h,role FROM users" || true
-          echo "=== login response ==="
-          curl -s -i -X POST http://127.0.0.1:8080/login -d 'email=admin@example.com&password=demo1234' | head -25 || true
+          curl -s -i -X POST http://127.0.0.1:8080/login -d 'email=agent@example.com&password=demo1234' | head -20 || true
