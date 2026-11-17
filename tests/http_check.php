@@ -87,7 +87,6 @@ $id = $data['items'][0]['id'] ?? 0;
 check('created ticket is searchable', $id > 0, 'id=' . $id);
 check('new ticket starts open', ($data['items'][0]['status'] ?? '') === 'open', (string) ($data['items'][0]['status'] ?? ''));
 
-
 $post = static function (string $to) use ($base, $id, $token): array {
     return hit("{$base}/api/tickets/{$id}/status", [
         'method' => 'POST',
@@ -125,6 +124,39 @@ check('out-of-range page is clamped to a real page', $r['code'] === 200 && ($dat
 $r = hit("{$base}/api/tickets?q=" . urlencode("' OR 1=1 --"));
 $data = json_decode($r['body'], true);
 check('quote injection does not widen the result set', ($data['total'] ?? -1) === 0, 'total=' . ($data['total'] ?? 'null'));
+
+echo "10. AI reply drafts\n";
+$r = hit("{$base}/api/tickets/1/suggest", ['method' => 'POST', 'headers' => ['X-CSRF-Token: bogus']]);
+check('suggest without a valid csrf is 419', $r['code'] === 419, (string) $r['code']);
+
+$r = hit("{$base}/api/tickets/999999/suggest", ['method' => 'POST', 'headers' => ["X-CSRF-Token: {$token}"]]);
+check('suggest for a missing ticket is 404', $r['code'] === 404, (string) $r['code']);
+
+$r = hit("{$base}/api/tickets/1/suggest", ['method' => 'POST', 'headers' => ["X-CSRF-Token: {$token}"]]);
+$payload = json_decode($r['body'], true);
+if ($r['code'] === 503 && str_contains((string) ($payload['error'] ?? ''), 'not configured')) {
+    echo "  SKIP  no RAG_BASE_URL on this instance, happy path not exercised\n";
+} else {
+    check('suggest returns a draft', $r['code'] === 200 && is_string($payload['reply'] ?? null) && $payload['reply'] !== '', (string) $r['code']);
+
+    // same run, refusal path: the stand-in service refuses questions containing REFUSE_ME
+    hit("{$base}/tickets", ['method' => 'POST', 'body' => http_build_query([
+        'subject' => 'REFUSE_ME refund question',
+        'body' => 'Customer wants an answer the corpus cannot support.',
+        'customer_email' => 'refusal@example.com',
+        '_csrf' => $token,
+    ])]);
+    $r = hit("{$base}/api/tickets?q=" . urlencode('REFUSE_ME'));
+    $list = json_decode($r['body'], true);
+    $id = (int) ($list['items'][0]['id'] ?? 0);
+    if ($id > 0) {
+        $r = hit("{$base}/api/tickets/{$id}/suggest", ['method' => 'POST', 'headers' => ["X-CSRF-Token: {$token}"]]);
+        $payload = json_decode($r['body'], true);
+        check('a refusal is a 503 with the reason, not an empty draft',
+            $r['code'] === 503 && str_contains((string) ($payload['error'] ?? ''), '拒絕作答'),
+            (string) $r['code']);
+    }
+}
 
 echo "\n{$pass} passed, {$fail} failed\n";
 @unlink($jar);
