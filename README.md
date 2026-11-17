@@ -20,6 +20,10 @@ for no-reload status updates. Plain PHP 8.3 + PDO + MySQL, no framework, no buil
   stale page cannot offer an impossible action.
 - **Audit trail** — every accepted transition writes `(actor, ticket, from, to)`, so
   "who closed this and when" is answerable.
+- **AI reply drafts** (optional) — one button per ticket posts to
+  `POST /api/tickets/{id}/suggest`, which forwards the ticket text to an HTTP RAG service and
+  returns a draft with a copy button. No service configured, no problem: the endpoint answers
+  `503` and the row shows the reason instead of a blank draft.
 - **JSON API** used by the page itself: status updates and stat counters refresh without a
   reload (vanilla `fetch`, no jQuery, no bundler).
 
@@ -28,7 +32,25 @@ GET  /api/tickets?status=&q=&page=&per_page=      list + counts
 GET  /api/tickets/{id}                            detail + audit + allowed next states
 POST /api/tickets/{id}/status  {"status":"..."}    transition (CSRF required)
 GET  /api/stats                                   counters for the four cards
+POST /api/tickets/{id}/suggest                    reply draft from RAG_BASE_URL (CSRF required)
 ```
+
+### Wiring the AI reply
+
+`RAG_BASE_URL` points at anything that answers `POST /api/ask` with
+`{"question","top_k","generate"}` → `{"answer","refused","reason"}` — the RAG service from my
+[hk-law-rag](https://github.com/PugtoX/hk-law-rag) project speaks exactly this contract:
+
+```
+RAG_BASE_URL=http://127.0.0.1:8000 php -S 127.0.0.1:8080 -t public server.php
+```
+
+![AI reply draft](docs/suggest.png)
+
+Three outcomes are kept distinct because they mean different things to an agent: a draft,
+a refusal (`refused: true` — the service declined instead of guessing), and a failure
+(unreachable, non-200, malformed body). All three are surfaced; none of them produces a
+silently empty draft.
 
 ## Run it
 
@@ -59,10 +81,10 @@ stream CSS/JS from the document root.
 
 ```
 $ vendor/bin/phpunit --no-coverage
-OK (5 tests, 13 assertions)
+OK (11 tests, 31 assertions)
 
 $ php tests/http_check.php http://127.0.0.1:8080
-29 passed, 0 failed
+33 passed, 0 failed
 ```
 
 `tests/TicketStatusTest.php` covers the transition table as a unit. `tests/http_check.php`
@@ -71,7 +93,12 @@ redirect, CSRF rejection (`419`), wrong password, login, ticket creation, the fo
 transitions plus the illegal ones (`409`), audit rows, stat totals, invalid input (`422`),
 page clamping, and that a `' OR 1=1 --` search string does not widen the result set.
 
-CI runs both against a real MySQL 8 service container (`.github/workflows/ci.yml`).
+`tests/RagSuggesterTest.php` pins the prompt contents and the payload interpretation
+(draft / refusal / service error / blank answer / non-JSON). The HTTP script also exercises the
+suggest route against `tests/fake_rag.php`, a stand-in that speaks the same contract, so the
+happy path and the refusal path are asserted without a model or a vector store.
+
+CI runs all of it against a real MySQL 8 service container (`.github/workflows/ci.yml`).
 
 ## Notes on the decisions
 
@@ -88,7 +115,7 @@ CI runs both against a real MySQL 8 service container (`.github/workflows/ci.yml
 
 ## Next step (not built)
 
-`tickets.body` is the only thing the agent reads today. The obvious addition is a
-**suggested-reply** endpoint: POST the ticket text to an LLM-backed RAG service and return a
-draft the agent can edit. The seam is one route (`POST /api/tickets/{id}/suggest`) and one
-button; the table already carries what the prompt would need.
+The draft is shown, not sent: there is no outbound email yet, so the copy button is the
+hand-off. The next honest step is to store the accepted draft on the ticket (who sent it,
+when) and only then add a mail transport — a suggestion nobody records is a suggestion
+nobody can audit.
